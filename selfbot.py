@@ -1,59 +1,53 @@
 import random
 import asyncio
-from telethon import TelegramClient, events  
+from telethon import TelegramClient, events
+from telethon.tl.types import UserStatusOnline
 
-# اطلاعات ورود به تلگرام
+# Telegram credentials
 api_id = 23619220  
-api_hash = "fa95f7a7ce715b76c27ddcd71e8fc77e"  
+api_hash = "fa95f7a7ce715b76c27ddcd71e8fc77e"
 
-# اتصال به تلگرام
 client = TelegramClient("haseeb_session", api_id, api_hash)
+bot_enabled = True  # Controls bot activity based on user status
 
-# پیام‌های مختلف برای پاسخگویی به پیام‌های اول، دوم و سوم هر کاربر
-first_responses = ["سلام! چطوری؟", "سلام عزیز، خوبی؟", "درود بر تو!"]
-second_responses = ["چیزی لازم داشتی؟", "بگو جانم؟", "بفرمایید؟"]
-third_responses = ["الان کار دارم، بعداً حرف می‌زنیم!", "یکم سرم شلوغه، بعداً پیام بده.", "باشه، بعداً در ارتباط باشیم."]
-
-# پاسخ‌های مخصوص پیام‌های خاص
-custom_responses = {
-    "سلام": ["جان، خوبی؟", "سلام عزیز، حالت چطوره؟"],
-    "چطوری": ["شکر، خودت چطوری؟", "خوبم، تو چطوری؟"],
-    "😢": ["چرا ناراحتی؟ 😔", "چی شده؟"],
-    "😂": ["خنده‌ات همیشه پایدار 😂", "خوش باشی همیشه!"]
-}
-
-# لیست پیام‌های ارسال‌شده برای جلوگیری از تکرار بی‌دلیل
-user_messages = {}
-
-@client.on(events.NewMessage(incoming=True))  
-async def auto_reply(event):
-    sender = await event.get_sender()
-    user_id = sender.id
-
-    # بررسی اینکه پیام از طرف خودت نیست
-    if not sender.bot and event.is_private:
-        user_messages.setdefault(user_id, 0)
-        user_messages[user_id] += 1
-
-        # ارسال پاسخ متفاوت بر اساس تعداد پیام‌ها
-        if user_messages[user_id] == 1:
-            reply = random.choice(first_responses)
-        elif user_messages[user_id] == 2:
-            reply = random.choice(second_responses)
+@client.on(events.UserUpdate)
+async def handle_status_update(event):
+    global bot_enabled
+    me = await client.get_me()
+    
+    if event.user.id == me.id:
+        # Disable bot when user comes online
+        if isinstance(event.user.status, UserStatusOnline):
+            bot_enabled = False
         else:
-            reply = random.choice(third_responses)
+            bot_enabled = True
 
-        # بررسی پاسخ‌های خاص برای پیام‌های خاص
-        text = event.raw_text.lower()
-        for key in custom_responses:
-            if key in text:
-                reply = random.choice(custom_responses[key])
-                break
+@client.on(events.NewMessage(incoming=True))
+async def auto_responder(event):
+    if not bot_enabled:
+        return
 
-        # تأخیر تصادفی برای طبیعی‌تر شدن
+    sender = await event.get_sender()
+    if event.is_private and not sender.bot:
+        msg = event.raw_text.strip()
+        
+        # Custom response for 'سلام'
+        if msg == "سلام":
+            response = "علیک جور استی"
+        else:
+            response = "سلام شازادع اقای حسیب فعلا در صنف درسی است  به زود ترین فرصت پاسخگو شما است  صبور باشید"
+        
+        # Add natural response delay
         await asyncio.sleep(random.uniform(1, 3))
-        await event.reply(reply)
+        
+        # Send response and optionally delete it
+        sent_msg = await event.reply(response)
+        
+        # Random deletion chance (30% probability)
+        if random.random() < 0.3:
+            await asyncio.sleep(5)
+            await sent_msg.delete()
 
-print("🤖 سلف‌بات فعال شد...")
+print("🤖 Selfbot is now running...")
 client.start()
 client.run_until_disconnected()
