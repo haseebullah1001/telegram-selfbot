@@ -1,5 +1,6 @@
 import random
 import asyncio
+from collections import deque
 from telethon import TelegramClient, events
 from telethon.tl.types import UserStatusOnline
 
@@ -10,8 +11,8 @@ api_hash = "fa95f7a7ce715b76c27ddcd71e8fc77e"
 client = TelegramClient("haseeb_session", api_id, api_hash)
 bot_enabled = True  # Controls bot activity based on user status
 
-# Track replied messages to avoid duplicate responses
-replied_messages = set()
+# Track replied messages to avoid duplicate responses using a deque
+replied_messages = deque(maxlen=100)  # Stores the last 100 message IDs
 
 @client.on(events.UserUpdate)
 async def handle_status_update(event):
@@ -53,11 +54,7 @@ async def auto_responder(event):
         
         # Send response and mark this message as replied to
         await event.reply(response)
-        replied_messages.add(msg_id)
-        
-        # Clean up old message IDs to avoid memory bloat
-        if len(replied_messages) > 100:  # Keep only the last 100 message IDs
-            replied_messages = set(list(replied_messages)[-100:])
+        replied_messages.append(msg_id)  # Add msg_id to deque
 
 print("🤖 Selfbot is now running...")
 client.start()
