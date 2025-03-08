@@ -4,58 +4,51 @@ from collections import deque
 from telethon import TelegramClient, events
 from telethon.tl.types import UserStatusOnline
 
-# Telegram credentials
-api_id = 23619220  
+# Telegram credentials (replace with yours)
+api_id = 23619220
 api_hash = "fa95f7a7ce715b76c27ddcd71e8fc77e"
 
 client = TelegramClient("haseeb_session", api_id, api_hash)
-bot_enabled = True  # Controls bot activity based on user status
+bot_enabled = True  # Master switch for the bot
 
-# Track replied messages to avoid duplicate responses using a deque
-replied_messages = deque(maxlen=100)  # Stores the last 100 message IDs
+# Track replied messages (max 100 to prevent memory bloat)
+replied_messages = deque(maxlen=100)
 
 @client.on(events.UserUpdate)
-async def handle_status_update(event):
+async def handle_status(event):
     global bot_enabled
     me = await client.get_me()
     
+    # Only react to YOUR account's status changes
     if event.user.id == me.id:
-        # Disable bot when user comes online
-        if isinstance(event.user.status, UserStatusOnline):
-            bot_enabled = False
-        else:
-            bot_enabled = True
+        bot_enabled = not isinstance(event.user.status, UserStatusOnline)
+        print(f"Bot {'disabled' if not bot_enabled else 'enabled'}")
 
 @client.on(events.NewMessage(incoming=True))
-async def auto_responder(event):
-    global replied_messages
-    
+async def auto_reply(event):
     if not bot_enabled:
-        return
+        return  # Skip processing if bot is disabled
 
     sender = await event.get_sender()
     if event.is_private and not sender.bot:
-        msg_id = event.id  # Unique ID of the incoming message
+        msg_id = event.id
         
-        # Check if we've already replied to this message
+        # Avoid duplicate replies
         if msg_id in replied_messages:
             return
         
-        msg = event.raw_text.strip()
+        replied_messages.append(msg_id)  # Track message ID immediately
         
-        # Custom response for 'سلام'
-        if msg == "سلام":
+        # Custom responses
+        if event.raw_text.strip() == "سلام":
             response = "علیک جور استی"
         else:
             response = "سلام شازادع اقای حسیب فعلا در صنف درسی است  به زود ترین فرصت پاسخگو شما است  صبور باشید"
         
-        # Add natural response delay
+        # Simulate human-like delay
         await asyncio.sleep(random.uniform(1, 3))
-        
-        # Send response and mark this message as replied to
         await event.reply(response)
-        replied_messages.append(msg_id)  # Add msg_id to deque
 
-print("🤖 Selfbot is now running...")
+print("🤖 Selfbot running. Ctrl+C to stop.")
 client.start()
 client.run_until_disconnected()
